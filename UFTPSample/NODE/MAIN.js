@@ -2,7 +2,7 @@ UFTPSample.MAIN = METHOD({
 
 	run : () => {
 		
-		let ftp = UFTP.FTP(UFTPSample.Sercured.connectInfo);
+		let ftp = UFTP.SFTP(UFTPSample.Sercured.connectInfo);
 		
 		/* {
 			host : '호스트 도메인',
@@ -10,5 +10,9 @@ UFTPSample.MAIN = METHOD({
 			username : '아이디',
 			password : '비밀번호'
 		}*/
+		
+		ftp.getFileInfo('./license.creature_license_extension', (fileInfo) => {
+			console.log(fileInfo);
+		});
 	}
 });
