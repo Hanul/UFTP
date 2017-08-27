@@ -2,7 +2,7 @@ UFTPSample.MAIN = METHOD({
 
 	run : () => {
 		
-		let ftp = UFTP.CONNECT(UFTPSample.Sercured.connectInfo);
+		let ftp = UFTP.FTP(UFTPSample.Sercured.connectInfo);
 		
 		/* {
 			host : '호스트 도메인',
