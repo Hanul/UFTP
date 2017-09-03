@@ -1,6 +1,7 @@
 UFTP.SFTP = CLASS((cls) => {
 	
 	let Client = require('ssh2').Client;
+	let Path = require('path');
 	
 	return {
 
@@ -244,6 +245,111 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//OPTIONAL: callbackOrHandlers.success
 							
+							let path = params.path;
+							let content = params.content;
+							let buffer = params.buffer;
+							
+							if (content !== undefined) {
+								buffer = Buffer.from(content, 'utf8');
+							}
+							
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							let folderPath = Path.dirname(path);
+							
+							createFolder(folderPath, {
+								
+								error : (errorMsg) => {
+									
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, folderPath);
+									} else {
+										SHOW_ERROR('UFTP.SFTP/writeFile', errorMsg, folderPath);
+									}
+								},
+								
+								success : () => {
+									
+									sftp.open(path, 'w', (error, handle) => {
+										
+										if (error !== undefined) {
+											
+											let errorMsg = error.toString();
+				
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, path);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/writeFile', errorMsg, path);
+											}
+										}
+										
+										else {
+											
+											let bufferSize = buffer.byteLength;
+											let chunkSize = 16384;
+											let writeBytes = 0;
+											let isErrorOccured;
+											
+											let writeCallback = (error, totalWriteBytes) => {
+												
+												if (error !== undefined) {
+													
+													isErrorOccured = true;
+													sftp.close(handle);
+													
+													let errorMsg = error.toString();
+													
+													if (errorHandler !== undefined) {
+														errorHandler(errorMsg, path);
+													} else {
+														SHOW_ERROR('UFTP.SFTP/writeFile', errorMsg, path);
+													}
+												}
+												
+												else {
+													
+													if (totalWriteBytes === bufferSize) {
+														
+														if (callback !== undefined) {
+															callback();
+														}
+														
+														sftp.close(handle);
+													}
+												}
+											};
+											
+											if (bufferSize === 0) {
+												sftp.write(handle, buffer, 0, 0, 0, writeCallback);
+											}
+											
+											else {
+												
+												while (writeBytes < bufferSize && isErrorOccured !== true) {
+													
+													if ((writeBytes + chunkSize) > bufferSize) {
+														chunkSize = (bufferSize - writeBytes);
+													}
+													
+													sftp.write(handle, buffer, writeBytes, chunkSize, writeBytes, writeCallback);
+													
+													writeBytes += chunkSize;
+												}
+											}
+										}
+									});
+								}
+							});
 						};
 						
 						readFile = self.readFile = (path, callbackOrHandlers) => {
@@ -354,15 +460,25 @@ UFTP.SFTP = CLASS((cls) => {
 														}
 													};
 													
-													while (readBytes < bufferSize && isErrorOccured !== true) {
+													if (bufferSize === 0) {
 														
-														if ((readBytes + chunkSize) > bufferSize) {
-															chunkSize = (bufferSize - readBytes);
+														callback(Buffer.concat(data));
+														
+														sftp.close(handle);
+													}
+													
+													else {
+														
+														while (readBytes < bufferSize && isErrorOccured !== true) {
+															
+															if ((readBytes + chunkSize) > bufferSize) {
+																chunkSize = (bufferSize - readBytes);
+															}
+															
+															sftp.read(handle, buffer, readBytes, chunkSize, readBytes, readCallback);
+															
+															readBytes += chunkSize;
 														}
-														
-														sftp.read(handle, buffer, readBytes, chunkSize, readBytes, readCallback);
-														
-														readBytes += chunkSize;
 													}
 												}
 											});
@@ -432,6 +548,67 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//OPTIONAL: callbackOrHandlers.success
 							
+							let from = params.from;
+							let to = params.to;
+							
+							let notExistsHandler
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									notExistsHandler = callbackOrHandlers.notExists;
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							readFile(from, {
+								
+								error : (errorMsg) => {
+									
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, from);
+									} else {
+										SHOW_ERROR('UFTP.SFTP/copyFile', errorMsg, from);
+									}
+								},
+								
+								notExists : () => {
+									
+									if (notExistsHandler !== undefined) {
+										notExistsHandler(from);
+									} else {
+										SHOW_WARNING('UFTP.SFTP/copyFile', MSG({
+											ko : '파일이 존재하지 않습니다.'
+										}), {
+											from : from
+										});
+									}
+								},
+								
+								success : (buffer) => {
+									
+									writeFile({
+										path : to,
+										buffer : buffer
+									}, {
+										
+										error : (errorMsg) => {
+											
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, to);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/copyFile', errorMsg, to);
+											}
+										},
+										
+										success : callback
+									});
+								}
+							});
 						};
 						
 						moveFile = self.moveFile = (params, callbackOrHandlers) => {
@@ -443,6 +620,59 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//OPTIONAL: callbackOrHandlers.success
 							
+							let from = params.from;
+							let to = params.to;
+							
+							let notExistsHandler
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									notExistsHandler = callbackOrHandlers.notExists;
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							checkFileExists(from, (exists) => {
+								
+								if (exists !== true) {
+									
+									if (notExistsHandler !== undefined) {
+										notExistsHandler(from);
+									} else {
+										SHOW_WARNING('UFTP.SFTP/moveFile', MSG({
+											ko : '파일이 존재하지 않습니다.'
+										}), {
+											from : from
+										});
+									}
+								}
+								
+								else {
+									
+									sftp.rename(from, to, (error) => {
+										
+										if (error !== undefined) {
+										
+											let errorMsg = error.toString();
+				
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, params);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/moveFile', errorMsg, params);
+											}
+										}
+										
+										else if (callback !== undefined) {
+											callback();
+										}
+									});
+								}
+							});
 						};
 						
 						removeFile = self.removeFile = (path, callbackOrHandlers) => {
@@ -450,8 +680,58 @@ UFTP.SFTP = CLASS((cls) => {
 							//REQUIRED: callbackOrHandlers
 							//OPTIONAL: callbackOrHandlers.notExists
 							//OPTIONAL: callbackOrHandlers.error
-							//REQUIRED: callbackOrHandlers.success
+							//OPTIONAL: callbackOrHandlers.success
 							
+							let notExistsHandler
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									notExistsHandler = callbackOrHandlers.notExists;
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							checkFileExists(path, (exists) => {
+								
+								if (exists !== true) {
+									
+									if (notExistsHandler !== undefined) {
+										notExistsHandler(path);
+									} else {
+										SHOW_WARNING('UFTP.SFTP/removeFile', MSG({
+											ko : '파일이 존재하지 않습니다.'
+										}), {
+											path : path
+										});
+									}
+								}
+								
+								else {
+									
+									sftp.unlink(path, (error) => {
+										
+										if (error !== undefined) {
+										
+											let errorMsg = error.toString();
+				
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, path);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/removeFile', errorMsg, path);
+											}
+										}
+										
+										else if (callback !== undefined) {
+											callback();
+										}
+									});
+								}
+							});
 						};
 						
 						checkFileExists = self.checkFileExists = (path, callback) => {
@@ -469,6 +749,64 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//OPTIONAL: callbackOrHandlers.success
 							
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							checkFileExists(path, (exists) => {
+								
+								if (exists !== true) {
+									
+									let folderPath = Path.dirname(path);
+									
+									checkFileExists(folderPath, (exists) => {
+										
+										NEXT([(next) => {
+											
+											if (exists !== true) {
+												createFolder(folderPath, next);
+											} else {
+												next();
+											}
+										},
+										
+										() => {
+											return () => {
+												
+												sftp.mkdir(path, (error) => {
+													
+													if (error !== undefined) {
+													
+														let errorMsg = error.toString();
+							
+														if (errorHandler !== undefined) {
+															errorHandler(errorMsg, path);
+														} else {
+															SHOW_ERROR('UFTP.SFTP/createFolder', errorMsg, path);
+														}
+													}
+													
+													else if (callback !== undefined) {
+														callback();
+													}
+												});
+											};
+										}]);
+									});
+								}
+								
+								else if (callback !== undefined) {
+									callback();
+								}
+							});
 						};
 						
 						copyFolder = self.copyFolder = (params, callbackOrHandlers) => {
@@ -480,6 +818,96 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//REQUIRED: callbackOrHandlers.success
 							
+							let from = params.from;
+							let to = params.to;
+							
+							let notExistsHandler;
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									notExistsHandler = callbackOrHandlers.notExists;
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							checkFileExists(from, (exists) => {
+								
+								if (exists !== true) {
+									
+									if (notExistsHandler !== undefined) {
+										notExistsHandler(from);
+									} else {
+										SHOW_WARNING('UFTP.SFTP/copyFolder', MSG({
+											ko : '폴더가 존재하지 않습니다.'
+										}), {
+											from : from
+										});
+									}
+								}
+								
+								else {
+									
+									sftp.readdir(from, (error, list) => {
+										
+										if (error !== undefined) {
+											
+											let errorMsg = error.toString();
+				
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, params);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/copyFolder', errorMsg, params);
+											}
+										}
+										
+										else {
+											
+											createFolder(to, {
+												error : errorHandler,
+												success : () => {
+													
+													NEXT(list, [(info, next) => {
+														
+														if (info.attrs.isDirectory() === true) {
+															copyFolder({
+																from : from + '/' + info.filename,
+																to : to + '/' + info.filename
+															}, {
+																error : errorHandler,
+																success : next
+															});
+														}
+														
+														else {
+															copyFile({
+																from : from + '/' + info.filename,
+																to : to + '/' + info.filename
+															}, {
+																error : errorHandler,
+																success : next
+															});
+														}
+													},
+													
+													() => {
+														return () => {
+															
+															if (callback !== undefined) {
+																callback();
+															}
+														};
+													}]);
+												}
+											});
+										}
+									});
+								}
+							});
 						};
 						
 						removeFolder = self.removeFolder = (path, callbackOrHandlers) => {
@@ -489,6 +917,95 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//REQUIRED: callbackOrHandlers.success
 							
+							let notExistsHandler;
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									notExistsHandler = callbackOrHandlers.notExists;
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							checkFileExists(path, (exists) => {
+								
+								if (exists !== true) {
+									
+									if (notExistsHandler !== undefined) {
+										notExistsHandler(path);
+									} else {
+										SHOW_WARNING('UFTP.SFTP/removeFolder', MSG({
+											ko : '폴더가 존재하지 않습니다.'
+										}), {
+											path : path
+										});
+									}
+								}
+								
+								else {
+									
+									sftp.readdir(path, (error, list) => {
+										
+										if (error !== undefined) {
+											
+											let errorMsg = error.toString();
+				
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, path);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/removeFolder', errorMsg, path);
+											}
+										}
+										
+										else {
+											
+											NEXT(list, [(info, next) => {
+												
+												if (info.attrs.isDirectory() === true) {
+													removeFolder(path + '/' + info.filename, {
+														error : error,
+														success : next
+													});
+												}
+												
+												else {
+													removeFile(path + '/' + info.filename, {
+														error : error,
+														success : next
+													});
+												}
+											},
+											
+											() => {
+												return () => {
+													
+													sftp.rmdir(path, (error) => {
+														
+														if (error !== undefined) {
+														
+															let errorMsg = error.toString();
+								
+															if (errorHandler !== undefined) {
+																errorHandler(errorMsg, path);
+															} else {
+																SHOW_ERROR('UFTP.SFTP/removeFolder', errorMsg, path);
+															}
+														}
+														
+														else if (callback !== undefined) {
+															callback();
+														}
+													});
+												};
+											}]);
+										}
+									});
+								}
+							});
 						};
 						
 						checkIsFolder = self.checkIsFolder = (path, callbackOrHandlers) => {
@@ -497,6 +1014,29 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//OPTIONAL: callbackOrHandlers.success
 							
+							let notExistsHandler
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							sftp.stat(path, (error, stat) => {
+								
+								if (error !== undefined) {
+									callback(false);
+								}
+								
+								else {
+									callback(stat.isDirectory());
+								}
+							});
 						};
 						
 						findFileNames = self.findFileNames = (path, callbackOrHandlers) => {
@@ -522,33 +1062,50 @@ UFTP.SFTP = CLASS((cls) => {
 							
 							let fileNames = [];
 							
-							//TODO: 존재하는지 판단 먼저
-							
-							sftp.readdir(path, (error, list) => {
+							checkFileExists(path, (exists) => {
 								
-								if (error !== undefined) {
+								if (exists !== true) {
 									
-									let errorMsg = error.toString();
-		
-									if (errorHandler !== undefined) {
-										errorHandler(errorMsg, path);
+									if (notExistsHandler !== undefined) {
+										notExistsHandler(path);
 									} else {
-										SHOW_ERROR('UFTP.SFTP/findFileNames', errorMsg, path);
+										SHOW_WARNING('UFTP.SFTP/findFileNames', MSG({
+											ko : '폴더가 존재하지 않습니다.'
+										}), {
+											path : path
+										});
 									}
 								}
 								
 								else {
 									
-									EACH(list, (info) => {
+									sftp.readdir(path, (error, list) => {
 										
-										if (info.attrs.isDirectory() !== true) {
-											fileNames.push(info.filename);
+										if (error !== undefined) {
+											
+											let errorMsg = error.toString();
+				
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, path);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/findFileNames', errorMsg, path);
+											}
+										}
+										
+										else {
+											
+											EACH(list, (info) => {
+												
+												if (info.attrs.isDirectory() !== true) {
+													fileNames.push(info.filename);
+												}
+											});
+											
+											if (callback !== undefined) {
+												callback(fileNames);
+											}
 										}
 									});
-									
-									if (callback !== undefined) {
-										callback(fileNames);
-									}
 								}
 							});
 						};
@@ -560,6 +1117,68 @@ UFTP.SFTP = CLASS((cls) => {
 							//OPTIONAL: callbackOrHandlers.error
 							//OPTIONAL: callbackOrHandlers.success
 							
+							let notExistsHandler
+							let errorHandler;
+							let callback;
+							
+							if (callbackOrHandlers !== undefined) {
+								if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+									callback = callbackOrHandlers;
+								} else {
+									notExistsHandler = callbackOrHandlers.notExists;
+									errorHandler = callbackOrHandlers.error;
+									callback = callbackOrHandlers.success;
+								}
+							}
+							
+							let folderNames = [];
+							
+							checkFileExists(path, (exists) => {
+								
+								if (exists !== true) {
+									
+									if (notExistsHandler !== undefined) {
+										notExistsHandler(path);
+									} else {
+										SHOW_WARNING('UFTP.SFTP/findFolderNames', MSG({
+											ko : '폴더가 존재하지 않습니다.'
+										}), {
+											path : path
+										});
+									}
+								}
+								
+								else {
+									
+									sftp.readdir(path, (error, list) => {
+										
+										if (error !== undefined) {
+											
+											let errorMsg = error.toString();
+				
+											if (errorHandler !== undefined) {
+												errorHandler(errorMsg, path);
+											} else {
+												SHOW_ERROR('UFTP.SFTP/findFolderNames', errorMsg, path);
+											}
+										}
+										
+										else {
+											
+											EACH(list, (info) => {
+												
+												if (info.attrs.isDirectory() === true) {
+													folderNames.push(info.filename);
+												}
+											});
+											
+											if (callback !== undefined) {
+												callback(folderNames);
+											}
+										}
+									});
+								}
+							});
 						};
 						
 						// run waiting infos.

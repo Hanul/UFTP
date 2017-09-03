@@ -1,6 +1,7 @@
 UFTP.FTP = CLASS((cls) => {
 	
 	let Client = require('ftp');
+	let Path = require('path');
 	
 	return {
 
@@ -227,6 +228,60 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
+					let path = params.path;
+					let content = params.content;
+					let buffer = params.buffer;
+					
+					if (content !== undefined) {
+						buffer = Buffer.from(content, 'utf8');
+					}
+					
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					let folderPath = Path.dirname(path);
+					
+					createFolder(folderPath, {
+						
+						error : (errorMsg) => {
+							
+							if (errorHandler !== undefined) {
+								errorHandler(errorMsg, folderPath);
+							} else {
+								SHOW_ERROR('UFTP.FTP/writeFile', errorMsg, folderPath);
+							}
+						},
+						
+						success : () => {
+							
+							client.put(buffer, path, (error, stream) => {
+								
+								if (error !== undefined) {
+								
+									let errorMsg = error.toString();
+		
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, params);
+									} else {
+										SHOW_ERROR('UFTP.FTP/writeFile', errorMsg, params);
+									}
+								}
+								
+								else if (callback !== undefined) {
+									callback();
+								}
+							});
+						}
+					});
 				};
 				
 				readFile = self.readFile = (path, callbackOrHandlers) => {
@@ -392,6 +447,67 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
+					let from = params.from;
+					let to = params.to;
+					
+					let notExistsHandler
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							notExistsHandler = callbackOrHandlers.notExists;
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					readFile(from, {
+						
+						error : (errorMsg) => {
+							
+							if (errorHandler !== undefined) {
+								errorHandler(errorMsg, from);
+							} else {
+								SHOW_ERROR('UFTP.FTP/copyFile', errorMsg, from);
+							}
+						},
+						
+						notExists : () => {
+							
+							if (notExistsHandler !== undefined) {
+								notExistsHandler(from);
+							} else {
+								SHOW_WARNING('UFTP.FTP/copyFile', MSG({
+									ko : '파일이 존재하지 않습니다.'
+								}), {
+									from : from
+								});
+							}
+						},
+						
+						success : (buffer) => {
+							
+							writeFile({
+								path : to,
+								buffer : buffer
+							}, {
+								
+								error : (errorMsg) => {
+									
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, to);
+									} else {
+										SHOW_ERROR('UFTP.FTP/copyFile', errorMsg, to);
+									}
+								},
+								
+								success : callback
+							});
+						}
+					});
 				};
 				
 				moveFile = self.moveFile = (params, callbackOrHandlers) => {
@@ -403,6 +519,59 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
+					let from = params.from;
+					let to = params.to;
+					
+					let notExistsHandler
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							notExistsHandler = callbackOrHandlers.notExists;
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					checkFileExists(from, (exists) => {
+						
+						if (exists !== true) {
+							
+							if (notExistsHandler !== undefined) {
+								notExistsHandler(from);
+							} else {
+								SHOW_WARNING('UFTP.FTP/moveFile', MSG({
+									ko : '파일이 존재하지 않습니다.'
+								}), {
+									from : from
+								});
+							}
+						}
+						
+						else {
+							
+							client.rename(from, to, (error) => {
+								
+								if (error !== undefined) {
+								
+									let errorMsg = error.toString();
+		
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, params);
+									} else {
+										SHOW_ERROR('UFTP.FTP/moveFile', errorMsg, params);
+									}
+								}
+								
+								else if (callback !== undefined) {
+									callback();
+								}
+							});
+						}
+					});
 				};
 				
 				removeFile = self.removeFile = (path, callbackOrHandlers) => {
@@ -410,8 +579,58 @@ UFTP.FTP = CLASS((cls) => {
 					//REQUIRED: callbackOrHandlers
 					//OPTIONAL: callbackOrHandlers.notExists
 					//OPTIONAL: callbackOrHandlers.error
-					//REQUIRED: callbackOrHandlers.success
+					//OPTIONAL: callbackOrHandlers.success
 					
+					let notExistsHandler
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							notExistsHandler = callbackOrHandlers.notExists;
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					checkFileExists(path, (exists) => {
+						
+						if (exists !== true) {
+							
+							if (notExistsHandler !== undefined) {
+								notExistsHandler(path);
+							} else {
+								SHOW_WARNING('UFTP.FTP/removeFile', MSG({
+									ko : '파일이 존재하지 않습니다.'
+								}), {
+									path : path
+								});
+							}
+						}
+						
+						else {
+							
+							client.delete(path, (error) => {
+								
+								if (error !== undefined) {
+								
+									let errorMsg = error.toString();
+		
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, path);
+									} else {
+										SHOW_ERROR('UFTP.FTP/removeFile', errorMsg, path);
+									}
+								}
+								
+								else if (callback !== undefined) {
+									callback();
+								}
+							});
+						}
+					});
 				};
 				
 				checkFileExists = self.checkFileExists = (path, callback) => {
@@ -452,6 +671,35 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					client.mkdir(path, true, (error) => {
+						
+						if (error !== undefined) {
+						
+							let errorMsg = error.toString();
+
+							if (errorHandler !== undefined) {
+								errorHandler(errorMsg, path);
+							} else {
+								SHOW_ERROR('UFTP.FTP/createFolder', errorMsg, path);
+							}
+						}
+						
+						else if (callback !== undefined) {
+							callback();
+						}
+					});
 				};
 				
 				copyFolder = self.copyFolder = (params, callbackOrHandlers) => {
@@ -463,6 +711,96 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//REQUIRED: callbackOrHandlers.success
 					
+					let from = params.from;
+					let to = params.to;
+					
+					let notExistsHandler;
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							notExistsHandler = callbackOrHandlers.notExists;
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					checkFileExists(from, (exists) => {
+						
+						if (exists !== true) {
+							
+							if (notExistsHandler !== undefined) {
+								notExistsHandler(from);
+							} else {
+								SHOW_WARNING('UFTP.FTP/copyFolder', MSG({
+									ko : '폴더가 존재하지 않습니다.'
+								}), {
+									from : from
+								});
+							}
+						}
+						
+						else {
+							
+							client.list(from, (error, list) => {
+								
+								if (error !== undefined) {
+									
+									let errorMsg = error.toString();
+		
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, params);
+									} else {
+										SHOW_ERROR('UFTP.FTP/copyFolder', errorMsg, params);
+									}
+								}
+								
+								else {
+									
+									createFolder(to, {
+										error : errorHandler,
+										success : () => {
+											
+											NEXT(list, [(info, next) => {
+												
+												if (info.type === 'd') {
+													copyFolder({
+														from : from + '/' + info.name,
+														to : to + '/' + info.name
+													}, {
+														error : errorHandler,
+														success : next
+													});
+												}
+												
+												else {
+													copyFile({
+														from : from + '/' + info.name,
+														to : to + '/' + info.name
+													}, {
+														error : errorHandler,
+														success : next
+													});
+												}
+											},
+											
+											() => {
+												return () => {
+													
+													if (callback !== undefined) {
+														callback();
+													}
+												};
+											}]);
+										}
+									});
+								}
+							});
+						}
+					});
 				};
 				
 				removeFolder = self.removeFolder = (path, callbackOrHandlers) => {
@@ -472,6 +810,56 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//REQUIRED: callbackOrHandlers.success
 					
+					let notExistsHandler;
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							notExistsHandler = callbackOrHandlers.notExists;
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					checkFileExists(path, (exists) => {
+						
+						if (exists !== true) {
+							
+							if (notExistsHandler !== undefined) {
+								notExistsHandler(path);
+							} else {
+								SHOW_WARNING('UFTP.FTP/removeFolder', MSG({
+									ko : '파일이 존재하지 않습니다.'
+								}), {
+									path : path
+								});
+							}
+						}
+						
+						else {
+							
+							client.rmdir(path, true, (error) => {
+								
+								if (error !== undefined) {
+								
+									let errorMsg = error.toString();
+		
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, path);
+									} else {
+										SHOW_ERROR('UFTP.FTP/removeFolder', errorMsg, path);
+									}
+								}
+								
+								else if (callback !== undefined) {
+									callback();
+								}
+							});
+						}
+					});
 				};
 				
 				checkIsFolder = self.checkIsFolder = (path, callbackOrHandlers) => {
@@ -480,6 +868,40 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					let folderPath = path.substring(0, path.lastIndexOf('/'));
+					let fileName = path.substring(path.lastIndexOf('/') + 1);
+					
+					client.list(folderPath, (error, list) => {
+						
+						if (error !== undefined) {
+							callback(false);
+						}
+						
+						else {
+							
+							let isFolder = false;
+							
+							EACH(list, (info) => {
+								if (info.name === fileName) {
+									isFolder = info.type === 'd';
+								}
+							});
+							
+							callback(isFolder);
+						}
+					});
 				};
 				
 				findFileNames = self.findFileNames = (path, callbackOrHandlers) => {
@@ -505,31 +927,50 @@ UFTP.FTP = CLASS((cls) => {
 					
 					let fileNames = [];
 					
-					client.list(path, (error, list) => {
+					checkFileExists(path, (exists) => {
 						
-						if (error !== undefined) {
-						
-							let errorMsg = error.toString();
-
-							if (errorHandler !== undefined) {
-								errorHandler(errorMsg, path);
+						if (exists !== true) {
+							
+							if (notExistsHandler !== undefined) {
+								notExistsHandler(path);
 							} else {
-								SHOW_ERROR('UFTP.FTP/findFileNames', errorMsg, path);
+								SHOW_WARNING('UFTP.FTP/findFileNames', MSG({
+									ko : '폴더가 존재하지 않습니다.'
+								}), {
+									path : path
+								});
 							}
 						}
 						
 						else {
 							
-							EACH(list, (info) => {
+							client.list(path, (error, list) => {
 								
-								if (info.type !== 'd') {
-									fileNames.push(info.name);
+								if (error !== undefined) {
+								
+									let errorMsg = error.toString();
+		
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, path);
+									} else {
+										SHOW_ERROR('UFTP.FTP/findFileNames', errorMsg, path);
+									}
+								}
+								
+								else {
+									
+									EACH(list, (info) => {
+										
+										if (info.type !== 'd') {
+											fileNames.push(info.name);
+										}
+									});
+									
+									if (callback !== undefined) {
+										callback(fileNames);
+									}
 								}
 							});
-							
-							if (callback !== undefined) {
-								callback(fileNames);
-							}
 						}
 					});
 				};
@@ -541,6 +982,68 @@ UFTP.FTP = CLASS((cls) => {
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
+					let notExistsHandler
+					let errorHandler;
+					let callback;
+					
+					if (callbackOrHandlers !== undefined) {
+						if (CHECK_IS_DATA(callbackOrHandlers) !== true) {
+							callback = callbackOrHandlers;
+						} else {
+							notExistsHandler = callbackOrHandlers.notExists;
+							errorHandler = callbackOrHandlers.error;
+							callback = callbackOrHandlers.success;
+						}
+					}
+					
+					let folderNames = [];
+					
+					checkFileExists(path, (exists) => {
+						
+						if (exists !== true) {
+							
+							if (notExistsHandler !== undefined) {
+								notExistsHandler(path);
+							} else {
+								SHOW_WARNING('UFTP.FTP/findFolderNames', MSG({
+									ko : '폴더가 존재하지 않습니다.'
+								}), {
+									path : path
+								});
+							}
+						}
+						
+						else {
+							
+							client.list(path, (error, list) => {
+								
+								if (error !== undefined) {
+								
+									let errorMsg = error.toString();
+		
+									if (errorHandler !== undefined) {
+										errorHandler(errorMsg, path);
+									} else {
+										SHOW_ERROR('UFTP.FTP/findFolderNames', errorMsg, path);
+									}
+								}
+								
+								else {
+									
+									EACH(list, (info) => {
+										
+										if (info.type === 'd') {
+											folderNames.push(info.name);
+										}
+									});
+									
+									if (callback !== undefined) {
+										callback(folderNames);
+									}
+								}
+							});
+						}
+					});
 				};
 				
 				// run waiting infos.
