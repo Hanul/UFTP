@@ -5,20 +5,30 @@ UFTP.SFTP = CLASS((cls) => {
 	
 	return {
 
-		init : (inner, self, params, connectionErrorHandler) => {
+		init : (inner, self, params, handlers) => {
 			//REQUIRED: params
 			//REQUIRED: params.host
 			//OPTIONAL: params.port
 			//REQUIRED: params.username
 			//OPTIONAL: params.password
 			//OPTIONAL: params.privateKey
-			//OPTIONAL: connectionErrorHandler
+			//OPTIONAL: handlers
+			//OPTIONAL: handlers.error
+			//OPTIONAL: handlers.success
 			
 			let host = params.host;
 			let port = params.port === undefined ? 22 : params.port;
 			let username = params.username;
 			let password = params.password;
 			let privateKey = params.privateKey;
+			
+			let connectionErrorHandler;
+			let connectedHandler;
+			
+			if (handlers !== undefined) {
+				connectionErrorHandler = handlers.error;
+				connectedHandler = handlers.success;
+			}
 			
 			let waitingWriteFileInfos = [];
 			let waitingReadFileInfos = [];
@@ -220,6 +230,10 @@ UFTP.SFTP = CLASS((cls) => {
 			});
 			
 			client.on('ready', () => {
+				
+				if (connectedHandler !== undefined) {
+					connectedHandler();
+				}
 				
 				client.sftp((error, sftp) => {
 					

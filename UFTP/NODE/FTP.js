@@ -5,18 +5,28 @@ UFTP.FTP = CLASS((cls) => {
 	
 	return {
 
-		init : (inner, self, params, connectionErrorHandler) => {
+		init : (inner, self, params, handlers) => {
 			//REQUIRED: params
 			//REQUIRED: params.host
 			//OPTIONAL: params.port
 			//REQUIRED: params.username
 			//REQUIRED: params.password
-			//OPTIONAL: connectionErrorHandler
+			//OPTIONAL: handlers
+			//OPTIONAL: handlers.error
+			//OPTIONAL: handlers.success
 			
 			let host = params.host;
 			let port = params.port === undefined ? 21 : params.port;
 			let username = params.username;
 			let password = params.password;
+			
+			let connectionErrorHandler;
+			let connectedHandler;
+			
+			if (handlers !== undefined) {
+				connectionErrorHandler = handlers.error;
+				connectedHandler = handlers.success;
+			}
 			
 			let waitingWriteFileInfos = [];
 			let waitingReadFileInfos = [];
@@ -218,6 +228,10 @@ UFTP.FTP = CLASS((cls) => {
 			});
 			
 			client.on('ready', () => {
+				
+				if (connectedHandler !== undefined) {
+					connectedHandler();
+				}
 				
 				writeFile = self.writeFile = (params, callbackOrHandlers) => {
 					//REQUIRED: params
