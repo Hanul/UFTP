@@ -88,7 +88,7 @@ UFTP.FTP = CLASS((cls) => {
 				//REQUIRED: params.from		복사할 파일의 위치
 				//REQUIRED: params.to		파일을 복사할 위치
 				//OPTIONAL: callbackOrHandlers
-				//OPTIONAL: callbackOrHandlers.notExistsHandler
+				//OPTIONAL: callbackOrHandlers.notExists
 				//OPTIONAL: callbackOrHandlers.error
 				//OPTIONAL: callbackOrHandlers.success
 				
@@ -103,7 +103,7 @@ UFTP.FTP = CLASS((cls) => {
 				//REQUIRED: params.from		파일의 원래 위치
 				//REQUIRED: params.to		파일을 옮길 위치
 				//OPTIONAL: callbackOrHandlers
-				//OPTIONAL: callbackOrHandlers.notExistsHandler
+				//OPTIONAL: callbackOrHandlers.notExists
 				//OPTIONAL: callbackOrHandlers.error
 				//OPTIONAL: callbackOrHandlers.success
 				
@@ -191,7 +191,7 @@ UFTP.FTP = CLASS((cls) => {
 			let findFileNames = self.findFileNames = (path, callbackOrHandlers) => {
 				//REQUIRED: path	파일들이 위치한 경로
 				//OPTIONAL: callbackOrHandlers
-				//OPTIONAL: callbackOrHandlers.notExistsHandler
+				//OPTIONAL: callbackOrHandlers.notExists
 				//OPTIONAL: callbackOrHandlers.error
 				//OPTIONAL: callbackOrHandlers.success
 				
@@ -204,7 +204,7 @@ UFTP.FTP = CLASS((cls) => {
 			let findFolderNames = self.findFolderNames = (path, callbackOrHandlers) => {
 				//REQUIRED: path	폴더들이 위치한 경로
 				//OPTIONAL: callbackOrHandlers
-				//OPTIONAL: callbackOrHandlers.notExistsHandler
+				//OPTIONAL: callbackOrHandlers.notExists
 				//OPTIONAL: callbackOrHandlers.error
 				//OPTIONAL: callbackOrHandlers.success
 				
@@ -457,7 +457,7 @@ UFTP.FTP = CLASS((cls) => {
 					//REQUIRED: params.from		복사할 파일의 위치
 					//REQUIRED: params.to		파일을 복사할 위치
 					//OPTIONAL: callbackOrHandlers
-					//OPTIONAL: callbackOrHandlers.notExistsHandler
+					//OPTIONAL: callbackOrHandlers.notExists
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
@@ -529,7 +529,7 @@ UFTP.FTP = CLASS((cls) => {
 					//REQUIRED: params.from		파일의 원래 위치
 					//REQUIRED: params.to		파일을 옮길 위치
 					//OPTIONAL: callbackOrHandlers
-					//OPTIONAL: callbackOrHandlers.notExistsHandler
+					//OPTIONAL: callbackOrHandlers.notExists
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
@@ -921,7 +921,7 @@ UFTP.FTP = CLASS((cls) => {
 				findFileNames = self.findFileNames = (path, callbackOrHandlers) => {
 					//REQUIRED: path	파일들이 위치한 경로
 					//OPTIONAL: callbackOrHandlers
-					//OPTIONAL: callbackOrHandlers.notExistsHandler
+					//OPTIONAL: callbackOrHandlers.notExists
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
@@ -992,7 +992,7 @@ UFTP.FTP = CLASS((cls) => {
 				findFolderNames = self.findFolderNames = (path, callbackOrHandlers) => {
 					//REQUIRED: path	폴더들이 위치한 경로
 					//OPTIONAL: callbackOrHandlers
-					//OPTIONAL: callbackOrHandlers.notExistsHandler
+					//OPTIONAL: callbackOrHandlers.notExists
 					//OPTIONAL: callbackOrHandlers.error
 					//OPTIONAL: callbackOrHandlers.success
 					
